@@ -210,7 +210,7 @@ INTERPRETED_TEXT_RE = inline_markup_gen("`", "`")
 INLINE_INTERNAL_TARGET_RE = inline_markup_gen("_`", "`")
 HYPERLINK_REFERENCES_RE = inline_markup_gen("`", "`_")
 ANONYMOUS_HYPERLINK_REFERENCES_RE = inline_markup_gen("`", "`__")
-PO_ANONYMOUS_HYPERLINK_REFERENCES_RE = inline_markup_gen("`", r"\ `__")
+GETTEXT_ANONYMOUS_HYPERLINK_REFERENCES_RE = inline_markup_gen("`", r"\ `__")
 INLINE_LITERAL_RE = inline_markup_gen("``", "``")
 NORMAL_ROLE_RE = re.compile(
     rf"""

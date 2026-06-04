@@ -50,7 +50,9 @@ def clean_paragraph(paragraph):
     paragraph = _clean_heuristic(paragraph, rst.INLINE_INTERNAL_TARGET_RE)
     paragraph = _clean_heuristic(paragraph, rst.HYPERLINK_REFERENCES_RE)
     paragraph = _clean_heuristic(paragraph, rst.ANONYMOUS_HYPERLINK_REFERENCES_RE)
-    paragraph = _clean_heuristic(paragraph, rst.PO_ANONYMOUS_HYPERLINK_REFERENCES_RE)
+    paragraph = _clean_heuristic(
+        paragraph, rst.GETTEXT_ANONYMOUS_HYPERLINK_REFERENCES_RE
+    )
     paragraph = rst.NORMAL_ROLE_RE.sub("", paragraph)
     return paragraph.replace("\x00", "\\")
 
