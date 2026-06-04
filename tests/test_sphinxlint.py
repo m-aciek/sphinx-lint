@@ -104,8 +104,7 @@ def test_po_reports_missing_space_after_anonymous_hyperlink_reference(tmp_path, 
 
     assert out == ""
     assert has_errors
-    assert (
-        "missing (escaped) space after hyperlink reference: "
-        "'`Pylint `__i'. (missing-space-after-hyperlink-reference)"
-    ) in err
+    assert len(err.splitlines()) == 1
+    assert "missing (escaped) space after hyperlink reference: '`Pylint `__i'." in err
+    assert "(missing-space-after-hyperlink-reference)" in err
     assert "hyperlink-reference-missing-backtick" not in err
