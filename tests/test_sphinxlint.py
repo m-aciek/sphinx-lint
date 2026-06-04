@@ -90,3 +90,22 @@ def test_line_no_in_error_msg(file, capsys):
     assert "paragraphs.rst:70: role use a single backtick" in err
     assert "paragraphs.rst:65: inline literal missing (escaped) space" in err
     assert has_errors
+
+
+def test_po_reports_missing_space_after_anonymous_hyperlink_reference(tmp_path, capsys):
+    file = tmp_path / "issue-161.po"
+    file.write_text(
+        'msgid "faq entry"\nmsgstr ""\n"`Ruff `__, `Pylint `__i `Pyflakes `__.\\n"\n',
+        encoding="UTF-8",
+    )
+
+    has_errors = main(["sphinxlint.py", str(file)])
+    out, err = capsys.readouterr()
+
+    assert out == ""
+    assert has_errors
+    assert (
+        "missing (escaped) space after hyperlink reference: "
+        "'`Pylint `__i'. (missing-space-after-hyperlink-reference)"
+    ) in err
+    assert "hyperlink-reference-missing-backtick" not in err

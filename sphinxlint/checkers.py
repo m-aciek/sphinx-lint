@@ -185,8 +185,19 @@ _ALLOWED_AFTER_ROLE = (
     + rst.UNICODE_ALLOWED_AFTER_INLINE_MARKUP
     + r"|\s"
 )
+_INLINE_MARKUP_PREFIX = rf"(?<!\x00){rst.START_STRING_PREFIX}"
 _SUSPICIOUS_ROLE = re.compile(
     f":{rst.SIMPLENAME}:`{_ROLE_BODY}`[^{_ALLOWED_AFTER_ROLE}]"
+)
+_SUSPICIOUS_HYPERLINK_REFERENCE = re.compile(
+    rf"{_INLINE_MARKUP_PREFIX}(?P<reference>`{_ROLE_BODY}`_(?!_))"
+    rf"(?P<suffix>(?!{rst.END_STRING_SUFFIX}).)",
+    flags=re.DOTALL,
+)
+_SUSPICIOUS_ANONYMOUS_HYPERLINK_REFERENCE = re.compile(
+    rf"{_INLINE_MARKUP_PREFIX}(?P<reference>`{_ROLE_BODY}`__)"
+    rf"(?P<suffix>(?!{rst.END_STRING_SUFFIX}).)",
+    flags=re.DOTALL,
 )
 
 
@@ -207,6 +218,32 @@ def check_missing_space_after_role(file, lines, options=None):
                 paragraph_lno + error_offset,
                 f"role missing (escaped) space after role: {role.group(0)!r}",
             )
+
+
+@checker(".rst", ".po")
+def check_missing_space_after_hyperlink_reference(file, lines, options=None):
+    r"""Search for hyperlink references immediately followed by a character.
+
+    Bad:  `Python`_s
+    Good: `Python`_\ s
+    """
+    for paragraph_lno, paragraph in paragraphs(lines):
+        if paragraph.count("|") > 4:
+            continue  # we don't handle tables yet.
+        paragraph = clean_paragraph(paragraph)
+        for regex in (
+            _SUSPICIOUS_HYPERLINK_REFERENCE,
+            _SUSPICIOUS_ANONYMOUS_HYPERLINK_REFERENCE,
+        ):
+            for hyperlink_reference in regex.finditer(paragraph):
+                error_offset = paragraph[: hyperlink_reference.start()].count("\n")
+                context = hyperlink_reference.group(
+                    "reference"
+                ) + hyperlink_reference.group("suffix")
+                yield (
+                    paragraph_lno + error_offset,
+                    f"missing (escaped) space after hyperlink reference: {context!r}.",
+                )
 
 
 @checker(".rst", ".po")
