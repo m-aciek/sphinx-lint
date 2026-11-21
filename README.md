@@ -44,6 +44,64 @@ We recommend using a configuration like this:
 ```
 
 
+### Machine-readable output
+
+Use `--format json` to write a JSON report to standard output:
+
+```sh
+sphinx-lint --format json --sort-by filename,line,error_type docs > lint.json
+```
+
+The report has a schema version, diagnostics, and file or path errors:
+
+```json
+{
+  "version": 1,
+  "diagnostics": [
+    {
+      "filename": "docs/guide.rst",
+      "line_no": 12,
+      "msg": "trailing whitespace",
+      "checker_name": "trailing-whitespace",
+      "po_entry": null
+    }
+  ],
+  "errors": []
+}
+```
+
+`line_no` is one-based, or 0 for a diagnostic about the whole file.
+Paths follow the same conventions as text output.
+`checker_name` is the name accepted by `--enable` and `--disable`.
+For diagnostics in translated PO entries, `po_entry` contains `msgctxt`,
+`msgid`, and `msgid_plural`, so consumers can identify the affected entry
+without reconstructing the extracted translation's line numbers. For example:
+
+```json
+{"msgctxt": "button", "msgid": "Open", "msgid_plural": ""}
+```
+
+Absent contexts are `null`; absent plural message IDs are empty strings.
+`po_entry` is `null` when a diagnostic cannot be associated with an entry,
+including for non-PO files. PO line numbers refer to the extracted translations,
+as in text output, and can differ from physical catalog line numbers.
+Only the translated entries checked by Sphinx Lint are included; fuzzy,
+untranslated, and obsolete entries are skipped.
+
+A clean run produces empty `diagnostics` and `errors` arrays. `errors` contains
+strings describing files or paths that could not be checked. Exit status is
+unchanged: 0 for a clean run, 1 for diagnostics or file errors, and 2 for invalid
+arguments or missing paths. Consumers should check both the exit status and
+`errors` before treating a report as a completed check. Argument errors still
+use standard error; `--list` cannot be combined with `--format json`.
+Use `--sort-by` when you need a predictable order across parallel runs.
+
+Python integrations can also use `check_file()` directly. It returns
+`LintError` objects with the same fields, including `po_entry` (a `PoEntry`
+object or `None`). File errors are returned as strings. `check_text()` returns
+diagnostics with `po_entry=None` because it checks text without parsing a catalog.
+
+
 ### Selecting checks
 
 Most checks are enabled by default. The following checks are available but disabled by default:

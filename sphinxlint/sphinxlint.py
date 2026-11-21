@@ -1,8 +1,17 @@
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from os.path import splitext
 
-from sphinxlint.utils import PER_FILE_CACHES, hide_non_rst_blocks, po2rst
+from sphinxlint.utils import PER_FILE_CACHES, _po2rst, hide_non_rst_blocks
+
+
+@dataclass(frozen=True)
+class PoEntry:
+    """Identity of the translated PO entry containing a diagnostic."""
+
+    msgctxt: str | None
+    msgid: str
+    msgid_plural: str
 
 
 @dataclass(frozen=True)
@@ -13,6 +22,7 @@ class LintError:
     line_no: int
     msg: str
     checker_name: str
+    po_entry: PoEntry | None = None
 
     def __str__(self):
         return f"{self.filename}:{self.line_no}: {self.msg} ({self.checker_name})"
@@ -57,13 +67,21 @@ def check_file(filename, checkers, options: CheckersOptions = None):
         try:
             with open(filename, encoding="utf-8") as f:
                 text = f.read()
+            entries = {}
             if filename.endswith(".po"):
-                text = po2rst(text)
+                text, entries = _po2rst(text)
         except OSError as err:
             return [f"{filename}: cannot open: {err}"]
         except UnicodeDecodeError as err:
             return [f"{filename}: cannot decode as UTF-8: {err}"]
-        return check_text(filename, text, checkers, options)
+        errors = check_text(filename, text, checkers, options)
+        for index, error in enumerate(errors):
+            if entry := entries.get(error.line_no):
+                errors[index] = replace(
+                    error,
+                    po_entry=PoEntry(entry.msgctxt, entry.msgid, entry.msgid_plural),
+                )
+        return errors
     finally:
         for memoized_function in PER_FILE_CACHES:
             memoized_function.cache_clear()

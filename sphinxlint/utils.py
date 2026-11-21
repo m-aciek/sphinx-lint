@@ -221,7 +221,13 @@ def type_of_explicit_markup(line):
 
 def po2rst(text):
     """Extract msgstr entries from a po content, keeping linenos."""
+    return _po2rst(text)[0]
+
+
+def _po2rst(text):
+    """Extract translations and map generated line numbers to PO entries."""
     output = []
+    entries = {}
     po = pofile(text, encoding="UTF-8")
     for entry in po.translated_entries():
         # Don't check original msgid, assume it's checked directly.
@@ -229,4 +235,5 @@ def po2rst(text):
             output.append("\n")
         for line in entry.msgstr.splitlines():
             output.append(line + "\n")
-    return "".join(output)
+            entries[len(output)] = entry
+    return "".join(output), entries

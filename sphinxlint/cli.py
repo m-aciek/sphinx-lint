@@ -1,8 +1,10 @@
 import argparse
 import enum
+import json
 import multiprocessing
 import os
 import sys
+from dataclasses import asdict
 from itertools import chain, starmap
 from operator import attrgetter
 
@@ -72,6 +74,12 @@ def parse_args(argv=None):
             return max(int(values), 1)
 
     parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text). JSON is written to stdout.",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -139,6 +147,8 @@ def parse_args(argv=None):
 
     parser.add_argument("paths", default=".", nargs="*")
     args = parser.parse_args(argv[1:])
+    if args.list and args.format == "json":
+        parser.error("--format json cannot be used with --list")
     try:
         enabled_checkers = {all_checkers[name] for name in enabled_checkers_names}
     except KeyError as err:
@@ -187,16 +197,32 @@ def sort_errors(results, sorted_by):
     # ordering specified by the user
     for sort_field in reversed(sorted_by):
         if sort_field == SortField.ERROR_TYPE:
-            errors.sort(key=lambda error: error.checker_name)
+            errors.sort(key=lambda error: getattr(error, "checker_name", ""))
         elif sort_field == SortField.FILENAME:
-            errors.sort(key=lambda error: error.filename)
+            errors.sort(key=lambda error: getattr(error, "filename", ""))
         elif sort_field == SortField.LINE:
-            errors.sort(key=lambda error: error.line_no)
+            errors.sort(key=lambda error: getattr(error, "line_no", 0))
     yield from errors
 
 
-def print_errors(errors):
+def print_errors(errors, output_format="text"):
     """Print errors (or a message if nothing is to be printed)."""
+    if output_format == "json":
+        diagnostics = []
+        failures = []
+        for error in errors:
+            if isinstance(error, str):
+                failures.append(error)
+            else:
+                diagnostics.append(asdict(error))
+        print(
+            json.dumps(
+                {"version": 1, "diagnostics": diagnostics, "errors": failures},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return len(diagnostics) + len(failures)
     qty = 0
     for error in errors:
         print(error, file=sys.stderr)
@@ -233,7 +259,7 @@ def main(argv=None):
 
     for path in args.paths:
         if not os.path.exists(path):
-            print(f"Error: path {path} does not exist", file=sys.stderr)
+            print_errors([f"Error: path {path} does not exist"], args.format)
             return 2
 
     todo = [
@@ -242,11 +268,14 @@ def main(argv=None):
     ]
 
     if args.jobs == 1 or len(todo) < 8:
-        count = print_errors(sort_errors(starmap(check_file, todo), args.sort_by))
+        count = print_errors(
+            sort_errors(starmap(check_file, todo), args.sort_by), args.format
+        )
     else:
         with multiprocessing.Pool(processes=args.jobs) as pool:
             count = print_errors(
-                sort_errors(pool.imap_unordered(_check_file, todo), args.sort_by)
+                sort_errors(pool.imap_unordered(_check_file, todo), args.sort_by),
+                args.format,
             )
             pool.close()
             pool.join()
