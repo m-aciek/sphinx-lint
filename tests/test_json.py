@@ -5,9 +5,9 @@ import sys
 import polib
 import pytest
 
-from sphinxlint import check_file
+from sphinxlint import LintError, check_file
 from sphinxlint.checkers import all_checkers
-from sphinxlint.cli import main
+from sphinxlint.cli import main, print_errors
 
 
 def run_json(capsys, *args):
@@ -26,7 +26,7 @@ def test_json_clean_file(tmp_path, capsys):
 
 
 def test_json_diagnostic(tmp_path, capsys):
-    path = tmp_path / 'zażółć "quoted".rst'
+    path = tmp_path / "zażółć 'quoted'.rst"
     path.write_text("First line.\nTrailing space. \n", encoding="utf-8")
     status, report = run_json(capsys, path)
     assert status == 1
@@ -43,6 +43,15 @@ def test_json_diagnostic(tmp_path, capsys):
         ],
         "errors": [],
     }
+
+
+def test_json_escaped_filename(capsys):
+    filename = 'zażółć "quoted"\\file.rst'
+    error = LintError(filename, 2, "trailing whitespace", "trailing-whitespace")
+    assert print_errors([error], "json") == 1
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert json.loads(out)["diagnostics"][0]["filename"] == filename
 
 
 def test_json_checker_selection_and_options(tmp_path, capsys):
